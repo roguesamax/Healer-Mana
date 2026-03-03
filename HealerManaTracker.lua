@@ -14,11 +14,24 @@ local DEFAULTS = {
     classColors = {},
 }
 
-local FONT_OPTIONS = {
+local FONT_OPTIONS = {}
+
+local BUILTIN_FONT_CANDIDATES = {
     { name = "Friz Quadrata", path = "Fonts\\FRIZQT__.TTF" },
     { name = "Arial Narrow", path = "Fonts\\ARIALN.TTF" },
     { name = "Morpheus", path = "Fonts\\MORPHEUS.TTF" },
     { name = "Skurri", path = "Fonts\\skurri.ttf" },
+    { name = "2002", path = "Fonts\\2002.TTF" },
+    { name = "Accidental Presidency", path = "Fonts\\Accidental Presidency.ttf" },
+    { name = "Action Man", path = "Fonts\\Action_Man.ttf" },
+    { name = "Bazooka", path = "Fonts\\Bazooka.ttf" },
+    { name = "Big Noodle Titling", path = "Fonts\\BigNoodleTitling.ttf" },
+    { name = "Continuum", path = "Fonts\\Continuum_Medium.ttf" },
+    { name = "Doris PP", path = "Fonts\\DORISPP.TTF" },
+    { name = "Expressway", path = "Fonts\\Expressway.ttf" },
+    { name = "Fritz", path = "Fonts\\Fritz Quadrata TT.ttf" },
+    { name = "Prototype", path = "Fonts\\PROTOTYPE.ttf" },
+    { name = "Roboto", path = "Fonts\\Roboto-Regular.ttf" },
 }
 
 local DRINKING_KEYWORDS = {
@@ -38,6 +51,24 @@ local trackedUnits = {}
 local rows = {}
 local configPanel
 local sliderCounter = 0
+local previewMode = nil
+local optionsPanel
+
+local PREVIEW_GROUPS = {
+    party = {
+        { name = "Holypriest", classToken = "PRIEST", manaPct = 88, drinking = false, dead = false },
+        { name = "Rshammy", classToken = "SHAMAN", manaPct = 46, drinking = true, dead = false },
+        { name = "Hpal", classToken = "PALADIN", manaPct = 12, drinking = false, dead = false },
+    },
+    raid = {
+        { name = "Treebuddy", classToken = "DRUID", manaPct = 73, drinking = false, dead = false },
+        { name = "Discangel", classToken = "PRIEST", manaPct = 52, drinking = false, dead = false },
+        { name = "Hpal", classToken = "PALADIN", manaPct = 28, drinking = true, dead = false },
+        { name = "Mistweave", classToken = "MONK", manaPct = 67, drinking = false, dead = false },
+        { name = "Evokefriend", classToken = "EVOKER", manaPct = 94, drinking = false, dead = false },
+        { name = "Dedhealz", classToken = "SHAMAN", manaPct = 0, drinking = false, dead = true },
+    },
+}
 
 local frame = CreateFrame("Frame", "HMTMainFrame", UIParent)
 frame:SetSize(220, 20)
@@ -161,6 +192,41 @@ local function ensureRows(count)
     end
 end
 
+local function setupFontOptions()
+    local seen = {}
+
+    local function addOption(name, path)
+        if not path or path == "" or seen[path] then
+            return
+        end
+        seen[path] = true
+        FONT_OPTIONS[#FONT_OPTIONS + 1] = {
+            name = name or path,
+            path = path,
+        }
+    end
+
+    for _, option in ipairs(BUILTIN_FONT_CANDIDATES) do
+        addOption(option.name, option.path)
+    end
+
+    local fallbackFonts = {
+        { name = "Standard", path = STANDARD_TEXT_FONT },
+        { name = "Damage", path = DAMAGE_TEXT_FONT },
+        { name = "Quest", path = UNIT_NAME_FONT },
+    }
+
+    for _, option in ipairs(fallbackFonts) do
+        addOption(option.name, option.path)
+    end
+
+    addOption("Current font", HMTDB and HMTDB.fontPath)
+
+    table.sort(FONT_OPTIONS, function(a, b)
+        return a.name < b.name
+    end)
+end
+
 local function applyLayout()
     frame:ClearAllPoints()
     frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", HMTDB.point.x, HMTDB.point.y)
@@ -176,6 +242,47 @@ local function applyLayout()
 end
 
 local function updateDisplay()
+    if previewMode then
+        local previewRows = PREVIEW_GROUPS[previewMode] or {}
+        ensureRows(#previewRows)
+
+        local y = 0
+        local maxWidth = 0
+        for i, entry in ipairs(previewRows) do
+            local row = rows[i]
+            local text
+
+            if entry.dead then
+                text = string.format("Dead: %s", entry.name)
+                row:SetTextColor(HMTDB.deadColor.r, HMTDB.deadColor.g, HMTDB.deadColor.b)
+            else
+                text = string.format("%s - %d%%", entry.name, entry.manaPct)
+                if entry.drinking then
+                    text = text .. " (Drinking)"
+                    row:SetTextColor(HMTDB.drinkingColor.r, HMTDB.drinkingColor.g, HMTDB.drinkingColor.b)
+                elseif HMTDB.useClassColors and entry.classToken then
+                    row:SetTextColor(colorForClass(entry.classToken))
+                else
+                    row:SetTextColor(HMTDB.defaultColor.r, HMTDB.defaultColor.g, HMTDB.defaultColor.b)
+                end
+            end
+
+            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, y)
+            row:SetText(text)
+            row:Show()
+
+            y = y - (HMTDB.fontSize + HMTDB.rowSpacing)
+            maxWidth = math.max(maxWidth, row:GetStringWidth())
+        end
+
+        for i = #previewRows + 1, #rows do
+            rows[i]:Hide()
+        end
+
+        frame:SetSize(math.max(120, maxWidth + 8), math.max(20, -y))
+        return
+    end
+
     getGroupUnits()
     ensureRows(#trackedUnits)
 
@@ -330,7 +437,7 @@ local function createClassColorButtons(parent)
     end
     table.sort(classes)
 
-    local startY = -290
+    local startY = -560
     local col, row = 0, 0
 
     for _, classToken in ipairs(classes) do
@@ -367,7 +474,10 @@ local function createConfigPanel()
     end
 
     configPanel = CreateFrame("Frame", "HMTConfigPanel", UIParent, "BasicFrameTemplateWithInset")
-    configPanel:SetSize(390, 620)
+    configPanel:SetSize(460, 660)
+    configPanel:SetResizable(true)
+    configPanel:SetMinResize(420, 520)
+    configPanel:SetMaxResize(700, 900)
     configPanel:SetPoint("CENTER")
     configPanel:SetFrameStrata("DIALOG")
     configPanel:Hide()
@@ -376,61 +486,105 @@ local function createConfigPanel()
     configPanel.title:SetPoint("LEFT", configPanel.TitleBg, "LEFT", 8, 0)
     configPanel.title:SetText("Healer Mana Tracker")
 
+    local subtitle = configPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    subtitle:SetPoint("TOPLEFT", 20, -36)
+    subtitle:SetText("Appearance + layout")
+
+    local resizeHandle = CreateFrame("Button", nil, configPanel)
+    resizeHandle:SetPoint("BOTTOMRIGHT", -6, 6)
+    resizeHandle:SetSize(16, 16)
+    resizeHandle:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resizeHandle:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    resizeHandle:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    resizeHandle:SetScript("OnMouseDown", function()
+        configPanel:StartSizing("BOTTOMRIGHT")
+    end)
+    resizeHandle:SetScript("OnMouseUp", function()
+        configPanel:StopMovingOrSizing()
+    end)
+
     createCheckbox(configPanel, "Unlock tracker (drag to move)", function()
         return HMTDB.unlocked
     end, function(v)
         HMTDB.unlocked = v
-    end, 20, -40)
+    end, 20, -58)
 
     createCheckbox(configPanel, "Use class colors", function()
         return HMTDB.useClassColors
     end, function(v)
         HMTDB.useClassColors = v
-    end, 20, -70)
+    end, 20, -86)
+
+    local previewButton = CreateFrame("Button", nil, configPanel, "UIPanelButtonTemplate")
+    previewButton:SetPoint("TOPLEFT", 20, -118)
+    previewButton:SetSize(200, 24)
+
+    local function syncPreviewButtonText()
+        if previewMode == "party" then
+            previewButton:SetText("Preview: Party")
+        elseif previewMode == "raid" then
+            previewButton:SetText("Preview: Raid")
+        else
+            previewButton:SetText("Preview: Off")
+        end
+    end
+
+    previewButton:SetScript("OnClick", function()
+        if previewMode == nil then
+            previewMode = "party"
+        elseif previewMode == "party" then
+            previewMode = "raid"
+        else
+            previewMode = nil
+        end
+
+        syncPreviewButtonText()
+        updateDisplay()
+    end)
 
     createSlider(configPanel, "Scale", 0.6, 2.0, 0.05, function()
         return HMTDB.scale
     end, function(v)
         HMTDB.scale = v
         applyLayout()
-    end, -110)
+    end, -160)
 
     createSlider(configPanel, "Font size", 8, 32, 1, function()
         return HMTDB.fontSize
     end, function(v)
         HMTDB.fontSize = v
-    end, -170)
+    end, -220)
 
     createSlider(configPanel, "Row spacing", 0, 16, 1, function()
         return HMTDB.rowSpacing
     end, function(v)
         HMTDB.rowSpacing = v
-    end, -230)
+    end, -280)
 
     createColorButton(configPanel, "Default text color", function()
         return HMTDB.defaultColor
     end, function(r, g, b)
         HMTDB.defaultColor = { r = r, g = g, b = b }
-    end, 20, -260)
+    end, 20, -320)
 
     createColorButton(configPanel, "Drinking color", function()
         return HMTDB.drinkingColor
     end, function(r, g, b)
         HMTDB.drinkingColor = { r = r, g = g, b = b }
-    end, 20, -290)
+    end, 20, -350)
 
     createColorButton(configPanel, "Dead color", function()
         return HMTDB.deadColor
     end, function(r, g, b)
         HMTDB.deadColor = { r = r, g = g, b = b }
-    end, 20, -320)
+    end, 20, -380)
 
     local fontLabel = configPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    fontLabel:SetPoint("TOPLEFT", 210, -264)
+    fontLabel:SetPoint("TOPLEFT", 230, -324)
     fontLabel:SetText("Font")
 
     local fontDrop = CreateFrame("Frame", "HMTFontDropdown", configPanel, "UIDropDownMenuTemplate")
-    fontDrop:SetPoint("TOPLEFT", 180, -282)
+    fontDrop:SetPoint("TOPLEFT", 200, -344)
 
     UIDropDownMenu_Initialize(fontDrop, function(self, level)
         for _, option in ipairs(FONT_OPTIONS) do
@@ -463,22 +617,64 @@ local function createConfigPanel()
     end, function(v)
         HMTDB.point.x = v
         applyLayout()
-    end, -380)
+    end, -450)
 
     local ySlider = createSlider(configPanel, "Y position", 0, 2000, 1, function()
         return HMTDB.point.y
     end, function(v)
         HMTDB.point.y = v
         applyLayout()
-    end, -450)
+    end, -520)
 
     configPanel:SetScript("OnShow", function()
+        syncPreviewButtonText()
         syncDropdown()
         xSlider:SetValue(HMTDB.point.x)
         ySlider:SetValue(HMTDB.point.y)
     end)
 
     createClassColorButtons(configPanel)
+end
+
+local function toggleConfigPanel()
+    createConfigPanel()
+    if configPanel:IsShown() then
+        configPanel:Hide()
+    else
+        configPanel:Show()
+    end
+end
+
+local function registerOptionsPanel()
+    if optionsPanel then
+        return
+    end
+
+    optionsPanel = CreateFrame("Frame", "HMTOptionsPanel", UIParent)
+    optionsPanel.name = "HealerManaTracker"
+
+    local header = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    header:SetPoint("TOPLEFT", 16, -16)
+    header:SetText("Healer Mana Tracker")
+
+    local description = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    description:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8)
+    description:SetJustifyH("LEFT")
+    description:SetText("Open the full addon configuration window.")
+
+    local openButton = CreateFrame("Button", nil, optionsPanel, "UIPanelButtonTemplate")
+    openButton:SetSize(180, 24)
+    openButton:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -12)
+    openButton:SetText("Open HealerManaTracker")
+    openButton:SetScript("OnClick", toggleConfigPanel)
+
+    if Settings and Settings.RegisterCanvasLayoutCategory then
+        local category = Settings.RegisterCanvasLayoutCategory(optionsPanel, optionsPanel.name, optionsPanel.name)
+        category.ID = optionsPanel.name
+        Settings.RegisterAddOnCategory(category)
+    elseif InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(optionsPanel)
+    end
 end
 
 SLASH_HMT1 = "/hmt"
@@ -514,12 +710,7 @@ SlashCmdList.HMT = function(msg)
         return
     end
 
-    createConfigPanel()
-    if configPanel:IsShown() then
-        configPanel:Hide()
-    else
-        configPanel:Show()
-    end
+    toggleConfigPanel()
 
     if msg ~= "" then
         print(string.format("HealerManaTracker: unknown command '%s'.", msg))
@@ -538,6 +729,8 @@ frame:RegisterEvent("UNIT_FLAGS")
 frame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
         initDB()
+        setupFontOptions()
+        registerOptionsPanel()
         applyLayout()
         updateDisplay()
         print("HealerManaTracker loaded. Type /hmt for options.")
