@@ -483,8 +483,22 @@ end
 
 SLASH_HMT1 = "/hmt"
 SLASH_HMT2 = "/healermana"
+
+local function printHelp()
+    print("HealerManaTracker commands:")
+    print("  /hmt - Open/close the settings window")
+    print("  /hmt unlock - Unlock tracker so you can drag it")
+    print("  /hmt lock - Lock tracker in place")
+    print("  /hmt help - Show this help text")
+end
+
 SlashCmdList.HMT = function(msg)
     msg = string.lower((msg or ""):gsub("^%s+", ""))
+
+    if msg == "help" or msg == "?" then
+        printHelp()
+        return
+    end
 
     if msg == "unlock" then
         HMTDB.unlocked = true
@@ -506,6 +520,11 @@ SlashCmdList.HMT = function(msg)
     else
         configPanel:Show()
     end
+
+    if msg ~= "" then
+        print(string.format("HealerManaTracker: unknown command '%s'.", msg))
+        printHelp()
+    end
 end
 
 frame:RegisterEvent("ADDON_LOADED")
@@ -521,6 +540,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
         initDB()
         applyLayout()
         updateDisplay()
+        print("HealerManaTracker loaded. Type /hmt for options.")
         return
     end
 
