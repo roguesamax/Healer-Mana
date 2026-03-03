@@ -52,7 +52,6 @@ local rows = {}
 local configPanel
 local sliderCounter = 0
 local previewMode = nil
-local optionsPanel
 
 local PREVIEW_GROUPS = {
     party = {
@@ -730,7 +729,6 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
         initDB()
         setupFontOptions()
-        registerOptionsPanel()
         applyLayout()
         updateDisplay()
         print("HealerManaTracker loaded. Type /hmt for options.")
