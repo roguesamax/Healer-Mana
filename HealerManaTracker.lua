@@ -679,9 +679,22 @@ end
 SLASH_HMT1 = "/hmt"
 SLASH_HMT2 = "/healermana"
 
+local function openOptionsCategory()
+    if Settings and Settings.OpenToCategory then
+        Settings.OpenToCategory("HealerManaTracker")
+        return
+    end
+
+    if InterfaceOptionsFrame_OpenToCategory then
+        InterfaceOptionsFrame_OpenToCategory(optionsPanel)
+        InterfaceOptionsFrame_OpenToCategory(optionsPanel)
+    end
+end
+
 local function printHelp()
     print("HealerManaTracker commands:")
     print("  /hmt - Open/close the settings window")
+    print("  /hmt options - Open Interface/Settings addon category")
     print("  /hmt unlock - Unlock tracker so you can drag it")
     print("  /hmt lock - Lock tracker in place")
     print("  /hmt help - Show this help text")
@@ -692,6 +705,11 @@ SlashCmdList.HMT = function(msg)
 
     if msg == "help" or msg == "?" then
         printHelp()
+        return
+    end
+
+    if msg == "options" then
+        openOptionsCategory()
         return
     end
 
