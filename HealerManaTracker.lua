@@ -635,6 +635,47 @@ local function createConfigPanel()
     createClassColorButtons(configPanel)
 end
 
+local function toggleConfigPanel()
+    createConfigPanel()
+    if configPanel:IsShown() then
+        configPanel:Hide()
+    else
+        configPanel:Show()
+    end
+end
+
+local function registerOptionsPanel()
+    if optionsPanel then
+        return
+    end
+
+    optionsPanel = CreateFrame("Frame", "HMTOptionsPanel", UIParent)
+    optionsPanel.name = "HealerManaTracker"
+
+    local header = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    header:SetPoint("TOPLEFT", 16, -16)
+    header:SetText("Healer Mana Tracker")
+
+    local description = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    description:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -8)
+    description:SetJustifyH("LEFT")
+    description:SetText("Open the full addon configuration window.")
+
+    local openButton = CreateFrame("Button", nil, optionsPanel, "UIPanelButtonTemplate")
+    openButton:SetSize(180, 24)
+    openButton:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -12)
+    openButton:SetText("Open HealerManaTracker")
+    openButton:SetScript("OnClick", toggleConfigPanel)
+
+    if Settings and Settings.RegisterCanvasLayoutCategory then
+        local category = Settings.RegisterCanvasLayoutCategory(optionsPanel, optionsPanel.name, optionsPanel.name)
+        category.ID = optionsPanel.name
+        Settings.RegisterAddOnCategory(category)
+    elseif InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(optionsPanel)
+    end
+end
+
 SLASH_HMT1 = "/hmt"
 SLASH_HMT2 = "/healermana"
 
@@ -668,12 +709,7 @@ SlashCmdList.HMT = function(msg)
         return
     end
 
-    createConfigPanel()
-    if configPanel:IsShown() then
-        configPanel:Hide()
-    else
-        configPanel:Show()
-    end
+    toggleConfigPanel()
 
     if msg ~= "" then
         print(string.format("HealerManaTracker: unknown command '%s'.", msg))
