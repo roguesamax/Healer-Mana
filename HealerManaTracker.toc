@@ -1,0 +1,8 @@
+## Interface: 100207
+## Title: HealerManaTracker
+## Notes: Displays healer mana percentages in a configurable vertical column.
+## Author: Codex
+## Version: 1.0.0
+## SavedVariables: HMTDB
+
+HealerManaTracker.lua
