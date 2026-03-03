@@ -5,4 +5,5 @@
 ## Author: Codex
 ## Version: 1.0.3
 ## SavedVariables: HMTDB
+
 HealerManaTracker.lua

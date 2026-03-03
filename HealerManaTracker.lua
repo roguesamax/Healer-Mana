@@ -52,7 +52,6 @@ local rows = {}
 local configPanel
 local sliderCounter = 0
 local previewMode = nil
-local optionsPanel
 
 local PREVIEW_GROUPS = {
     party = {
@@ -475,17 +474,9 @@ local function createConfigPanel()
 
     configPanel = CreateFrame("Frame", "HMTConfigPanel", UIParent, "BasicFrameTemplateWithInset")
     configPanel:SetSize(460, 660)
-    if configPanel.SetResizable then
-        configPanel:SetResizable(true)
-    end
-    if configPanel.SetMinResize then
-        configPanel:SetMinResize(420, 520)
-    elseif configPanel.SetResizeBounds then
-        configPanel:SetResizeBounds(420, 520, 700, 900)
-    end
-    if configPanel.SetMaxResize then
-        configPanel:SetMaxResize(700, 900)
-    end
+    configPanel:SetResizable(true)
+    configPanel:SetMinResize(420, 520)
+    configPanel:SetMaxResize(700, 900)
     configPanel:SetPoint("CENTER")
     configPanel:SetFrameStrata("DIALOG")
     configPanel:Hide()
@@ -505,14 +496,10 @@ local function createConfigPanel()
     resizeHandle:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
     resizeHandle:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
     resizeHandle:SetScript("OnMouseDown", function()
-        if configPanel.StartSizing then
-            configPanel:StartSizing("BOTTOMRIGHT")
-        end
+        configPanel:StartSizing("BOTTOMRIGHT")
     end)
     resizeHandle:SetScript("OnMouseUp", function()
-        if configPanel.StopMovingOrSizing then
-            configPanel:StopMovingOrSizing()
-        end
+        configPanel:StopMovingOrSizing()
     end)
 
     createCheckbox(configPanel, "Unlock tracker (drag to move)", function()
@@ -680,16 +667,11 @@ local function registerOptionsPanel()
     openButton:SetText("Open HealerManaTracker")
     openButton:SetScript("OnClick", toggleConfigPanel)
 
-    local registered = false
-    if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
-        local ok = pcall(function()
-            local category = Settings.RegisterCanvasLayoutCategory(optionsPanel, optionsPanel.name)
-            Settings.RegisterAddOnCategory(category)
-        end)
-        registered = ok
-    end
-
-    if (not registered) and InterfaceOptions_AddCategory then
+    if Settings and Settings.RegisterCanvasLayoutCategory then
+        local category = Settings.RegisterCanvasLayoutCategory(optionsPanel, optionsPanel.name, optionsPanel.name)
+        category.ID = optionsPanel.name
+        Settings.RegisterAddOnCategory(category)
+    elseif InterfaceOptions_AddCategory then
         InterfaceOptions_AddCategory(optionsPanel)
     end
 end
@@ -765,7 +747,6 @@ frame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
         initDB()
         setupFontOptions()
-        registerOptionsPanel()
         applyLayout()
         updateDisplay()
         print("HealerManaTracker loaded. Type /hmt for options.")
